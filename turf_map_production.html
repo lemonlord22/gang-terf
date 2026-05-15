@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Los Santos Turf Map - Gang Territory Control</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* Map Container */
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 350px;
+            bottom: 0;
+            background: #000;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100vh;
+            background: linear-gradient(180deg, rgba(20, 20, 20, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
+            border-left: 3px solid #8B0000;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            padding: 20px;
+            border-bottom: 3px solid #8B0000;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #FFD700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            font-size: 11px;
+            color: #CC0000;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* Section */
+        .section {
+            padding: 20px;
+            border-bottom: 2px solid rgba(139, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 16px;
+            color: #FFD700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Gang Selector */
+        .gang-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 2px solid #444;
+            border-radius: 6px;
+            background: #2d2d2d;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .gang-btn:hover {
+            background: #3d3d3d;
+            transform: translateX(-3px);
+        }
+
+        .gang-btn.active {
+            border-width: 3px;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .gang-color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            border: 2px solid #fff;
+        }
+
+        /* Stats */
+        .stat-item {
+            margin-bottom: 15px;
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .stat-bar {
+            height: 8px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .stat-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+
+        /* Territory List */
+        .territory-item {
+            padding: 10px;
+            margin-bottom: 6px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            border-left: 4px solid;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .territory-item:hover {
+            background: #252525;
+            transform: translateX(-3px);
+        }
+
+        .territory-name {
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+
+        .territory-owner {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8B0000 0%, #CC0000 100%);
+            color: #fff;
+            border: 2px solid #FF0000;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #CC0000 0%, #FF0000 100%);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #2d2d2d;
+            color: #fff;
+            border: 2px solid #444;
+        }
+
+        .btn-secondary:hover {
+            background: #3d3d3d;
+            border-color: #666;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border: 3px solid #8B0000;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 50px rgba(139, 0, 0, 0.5);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            color: #FFD700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            background: #0a0a0a;
+            border: 2px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #FFD700;
+        }
+
+        /* Color Picker */
+        .color-picker-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .color-picker {
+            width: 60px;
+            height: 40px;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 9999;
+        }
+
+        .spinner {
+            border: 4px solid #2d2d2d;
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #FFD700;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .status-online {
+            background: #00FF00;
+            color: #000;
+        }
+
+        .status-offline {
+            background: #FF0000;
+            color: #fff;
+        }
+
+        /* Last Updated */
+        .last-updated {
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            padding: 10px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #map {
+                right: 0;
+                height: 50vh;
+            }
+
+            .sidebar {
+                top: auto;
+                bottom: 0;
+                width: 100%;
+                height: 50vh;
+                border-left: none;
+                border-top: 3px solid #8B0000;
+            }
+        }
+
+        /* Leaflet Popup Custom Styling */
+        .leaflet-popup-content-wrapper {
+            background: rgba(10, 10, 10, 0.98);
+            color: #fff;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(10, 10, 10, 0.98);
+        }
+
+        /* Custom Scrollbar */
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #8B0000;
+            border-radius: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #CC0000;
+        }
+
+        /* Admin Panel */
+        .admin-panel {
+            background: rgba(139, 0, 0, 0.1);
+            border: 2px solid #8B0000;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .admin-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading Los Santos...</div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <!-- Header -->
+        <div class="header">
+            <h1>⚠️ LOS SANTOS TURF MAP ⚠️</h1>
+            <div class="subtitle">━━━ GANG TERRITORY CONTROL ━━━</div>
+            <div style="margin-top: 10px;">
+                <span class="status-badge status-online" id="connectionStatus">● ONLINE</span>
+            </div>
+        </div>
+
+        <!-- Gang Selector -->
+        <div class="section">
+            <div class="section-title">
+                <span>🏴</span> SELECT YOUR GANG
+            </div>
+            <div id="gangSelector"></div>
+            <button class="btn btn-secondary" onclick="openAddGangModal()">
+                ➕ Add New Gang
+            </button>
+        </div>
+
+        <!-- Territory Stats -->
+        <div class="section">
+            <div class="section-title">
+                <span>📊</span> TERRITORY CONTROL
+            </div>
+            <div id="statsContainer"></div>
+        </div>
+
+        <!-- Territory List -->
+        <div class="section">
+            <div class="section-title">
+                <span>🗺️</span> ALL TERRITORIES
+            </div>
+            <div id="territoryList"></div>
+        </div>
+
+        <!-- Admin Controls -->
+        <div class="section">
+            <div class="section-title">
+                <span>⚙️</span> ADMIN CONTROLS
+            </div>
+            <div class="admin-panel">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" onclick="resetAllTerritories()">
+                        🔄 Reset Map
+                    </button>
+                    <button class="btn btn-secondary" onclick="openManageGangsModal()">
+                        ✏️ Manage Gangs
+                    </button>
+                </div>
+                <button class="btn btn-secondary" onclick="exportData()">
+                    💾 Export Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="last-updated" id="lastUpdated">
+            Last Updated: Never
+        </div>
+    </div>
+
+    <!-- Add Gang Modal -->
+    <div id="addGangModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">➕ Add New Gang</div>
+            <div class="input-group">
+                <label>Gang Name</label>
+                <input type="text" id="newGangName" placeholder="Enter gang name">
+            </div>
+            <div class="input-group">
+                <label>Primary Color</label>
+                <div class="color-picker-group">
+                    <input type="color" id="newGangColor" class="color-picker" value="#FF0000">
+                    <input type="text" id="newGangColorHex" placeholder="#FF0000" maxlength="7">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Secondary Color (Optional - for gradient)</label>
+                <div class="color-picker-group">
+                    <input type="color" id="newGangColor2" class="color-picker" value="#FF0000">
+                    <input type="text" id="newGangColor2Hex" placeholder="#FF0000" maxlength="7">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeAddGangModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addNewGang()">Add Gang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Gangs Modal -->
+    <div id="manageGangsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">✏️ Manage Gangs</div>
+            <div id="manageGangsList"></div>
+            <button class="btn btn-secondary" onclick="closeManageGangsModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, onValue, remove, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        // REPLACE THIS WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let map;
+        let selectedGang = null;
+        let territories = {};
+        let gangs = {};
+        let territoryLayers = {};
+
+        // Default territories (Los Santos neighborhoods)
+        const TERRITORY_DEFINITIONS = [
+            { id: 't1', name: 'Vinewood Hills', coords: [[34.1, -118.35], [34.1, -118.30], [34.05, -118.30], [34.05, -118.35]] },
+            { id: 't2', name: 'West Vinewood', coords: [[34.1, -118.30], [34.1, -118.25], [34.05, -118.25], [34.05, -118.30]] },
+            { id: 't3', name: 'Rockford Hills', coords: [[34.05, -118.40], [34.05, -118.35], [34.00, -118.35], [34.00, -118.40]] },
+            { id: 't4', name: 'Downtown', coords: [[34.05, -118.25], [34.05, -118.20], [33.98, -118.20], [33.98, -118.25]] },
+            { id: 't5', name: 'Textile City', coords: [[34.05, -118.20], [34.05, -118.15], [33.98, -118.15], [33.98, -118.20]] },
+            { id: 't6', name: 'Little Seoul', coords: [[34.00, -118.30], [34.00, -118.25], [33.95, -118.25], [33.95, -118.30]] },
+            { id: 't7', name: 'La Mesa', coords: [[34.05, -118.15], [34.05, -118.10], [33.98, -118.10], [33.98, -118.15]] },
+            { id: 't8', name: 'Del Perro', coords: [[34.00, -118.45], [34.00, -118.42], [33.96, -118.42], [33.96, -118.45]] },
+            { id: 't9', name: 'Vespucci', coords: [[33.96, -118.45], [33.96, -118.42], [33.92, -118.42], [33.92, -118.45]] },
+            { id: 't10', name: 'Strawberry', coords: [[33.95, -118.35], [33.95, -118.30], [33.90, -118.30], [33.90, -118.35]] },
+            { id: 't11', name: 'Chamberlain Hills', coords: [[33.90, -118.35], [33.90, -118.30], [33.85, -118.30], [33.85, -118.35]] },
+            { id: 't12', name: 'Davis (Grove St)', coords: [[33.95, -118.28], [33.95, -118.23], [33.88, -118.23], [33.88, -118.28]] },
+            { id: 't13', name: 'Banning', coords: [[33.88, -118.25], [33.88, -118.18], [33.82, -118.18], [33.82, -118.25]] },
+            { id: 't14', name: 'Rancho', coords: [[33.98, -118.25], [33.98, -118.18], [33.92, -118.18], [33.92, -118.25]] },
+            { id: 't15', name: 'Cypress Flats', coords: [[33.98, -118.18], [33.98, -118.12], [33.92, -118.12], [33.92, -118.18]] },
+            { id: 't16', name: 'El Burro Heights', coords: [[33.98, -118.12], [33.98, -118.05], [33.90, -118.05], [33.90, -118.12]] },
+            { id: 't17', name: 'Terminal', coords: [[33.82, -118.18], [33.82, -118.12], [33.76, -118.12], [33.76, -118.18]] },
+            { id: 't18', name: 'Elysian Island', coords: [[33.82, -118.12], [33.82, -118.05], [33.76, -118.05], [33.76, -118.12]] },
+            { id: 't19', name: 'Mirror Park', coords: [[34.08, -118.18], [34.08, -118.12], [34.03, -118.12], [34.03, -118.18]] },
+            { id: 't20', name: 'Burton', coords: [[34.02, -118.28], [34.02, -118.23], [33.98, -118.23], [33.98, -118.28]] }
+        ];
+
+        // Default gangs
+        const DEFAULT_GANGS = {
+            'grove': { name: 'Grove Street Families', color: '#00FF00', color2: null },
+            'ballas': { name: 'The Ballas', color: '#9370DB', color2: null },
+            'diablos': { name: 'The Diablos', color: '#FF4500', color2: null },
+            'grape': { name: 'Grape Street Crabs', color: '#6A5ACD', color2: null }
+        };
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initializeApp();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Failed to connect to database. Please check your Firebase configuration.');
+            }
+        });
+
+        async function initializeApp() {
+            // Initialize Firebase listeners
+            await initializeFirebaseListeners();
+            
+            // Initialize map
+            initializeMap();
+            
+            // Hide loading screen
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 1000);
+        }
+
+        function initializeFirebaseListeners() {
+            // Listen for gang changes
+            onValue(ref(database, 'gangs'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    gangs = data;
+                } else {
+                    // Initialize with default gangs
+                    gangs = DEFAULT_GANGS;
+                    set(ref(database, 'gangs'), DEFAULT_GANGS);
+                }
+                renderGangSelector();
+                renderStats();
+            });
+
+            // Listen for territory changes
+            onValue(ref(database, 'territories'), (snapshot) => {
+                const data = snapshot.val();
+                territories = data || {};
+                updateAllTerritories();
+                renderStats();
+                renderTerritoryList();
+                updateLastUpdated();
+            });
+
+            // Connection status
+            const connectedRef = ref(database, '.info/connected');
+            onValue(connectedRef, (snap) => {
+                const statusEl = document.getElementById('connectionStatus');
+                if (snap.val() === true) {
+                    statusEl.textContent = '● ONLINE';
+                    statusEl.className = 'status-badge status-online';
+                } else {
+                    statusEl.textContent = '● OFFLINE';
+                    statusEl.className = 'status-badge status-offline';
+                }
+            });
+        }
+
+        // ============================================
+        // MAP INITIALIZATION
+        // ============================================
+        function initializeMap() {
+            map = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: -2,
+                maxZoom: 2,
+                zoomControl: true
+            });
+
+            const bounds = [[0, 0], [1000, 1000]];
+            
+            // Add Los Santos map image
+            const imageUrl = '/mnt/user-data/uploads/1778789708806_image.png';
+            L.imageOverlay(imageUrl, bounds).addTo(map);
+            
+            map.fitBounds(bounds);
+            map.setView([500, 500], 0);
+
+            // Initialize territories
+            TERRITORY_DEFINITIONS.forEach(territory => {
+                createTerritoryPolygon(territory);
+            });
+        }
+
+        function createTerritoryPolygon(territory) {
+            const convertedCoords = territory.coords.map(coord => {
+                const lat = (34.15 - coord[0]) * 10000;
+                const lng = (coord[1] + 118.5) * 10000;
+                return [lat, lng];
+            });
+
+            const owner = territories[territory.id];
+            const gang = owner ? gangs[owner] : null;
+            const color = gang ? gang.color : '#2d2d2d';
+            const fillColor = gang ? (gang.color2 ? `linear-gradient(135deg, ${gang.color}, ${gang.color2})` : gang.color) : 'rgba(45, 45, 45, 0.4)';
+
+            const polygon = L.polygon(convertedCoords, {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.5,
+                weight: 2
+            }).addTo(map);
+
+            polygon.bindTooltip(territory.name, {
+                permanent: false,
+                direction: 'center'
+            });
+
+            polygon.bindPopup(`
+                <div style="text-align: center; padding: 10px;">
+                    <strong style="font-size: 16px; color: ${color};">${territory.name}</strong><br>
+                    <span style="font-size: 12px; color: #ccc;">
+                        ${gang ? `Controlled by: ${gang.name}` : 'Unclaimed'}
+                    </span><br>
+                    ${selectedGang ? `
+                        <button onclick="claimTerritory('${territory.id}')" 
+                                style="margin-top: 10px; padding: 8px 16px; background: ${gangs[selectedGang].color}; 
+                                       color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Claim for ${gangs[selectedGang].name}
+                        </button>
+                    ` : '<span style="font-size: 11px; color: #ff0000;">Select a gang to claim</span>'}
+                </div>
+            `);
+
+            polygon.on('click', () => {
+                if (selectedGang) {
+                    claimTerritory(territory.id);
+                }
+            });
+
+            territoryLayers[territory.id] = polygon;
+        }
+
+        // ============================================
+        // TERRITORY MANAGEMENT
+        // ============================================
+        window.claimTerritory = function(territoryId) {
+            if (!selectedGang) {
+                alert('Please select a gang first!');
+                return;
+            }
+
+            set(ref(database, `territories/${territoryId}`), selectedGang);
+        };
+
+        function updateAllTerritories() {
+            TERRITORY_DEFINITIONS.forEach(territory => {
+                updateTerritoryDisplay(territory.id);
+            });
+        }
+
+        function updateTerritoryDisplay(territoryId) {
+            const polygon = territoryLayers[territoryId];
+            if (!polygon) return;
+
+            const owner = territories[territoryId];
+            const gang = owner ? gangs[owner] : null;
+            const color = gang ? gang.color : '#2d2d2d';
+
+            polygon.setStyle({
+                color: color,
+                fillColor: color,
+                fillOpacity: gang ? 0.5 : 0.3
+            });
+
+            const territory = TERRITORY_DEFINITIONS.find(t => t.id === territoryId);
+            polygon.setPopupContent(`
+                <div style="text-align: center; padding: 10px;">
+                    <strong style="font-size: 16px; color: ${color};">${territory.name}</strong><br>
+                    <span style="font-size: 12px; color: #ccc;">
+                        ${gang ? `Controlled by: ${gang.name}` : 'Unclaimed'}
+                    </span><br>
+                    ${selectedGang ? `
+                        <button onclick="claimTerritory('${territoryId}')" 
+                                style="margin-top: 10px; padding: 8px 16px; background: ${gangs[selectedGang].color}; 
+                                       color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Claim for ${gangs[selectedGang].name}
+                        </button>
+                    ` : '<span style="font-size: 11px; color: #ff0000;">Select a gang to claim</span>'}
+                </div>
+            `);
+        }
+
+        // ============================================
+        // UI RENDERING
+        // ============================================
+        function renderGangSelector() {
+            const container = document.getElementById('gangSelector');
+            container.innerHTML = '';
+
+            Object.entries(gangs).forEach(([id, gang]) => {
+                const btn = document.createElement('button');
+                btn.className = 'gang-btn';
+                if (selectedGang === id) {
+                    btn.classList.add('active');
+                    btn.style.borderColor = gang.color;
+                    btn.style.boxShadow = `0 0 20px ${gang.color}`;
+                }
+
+                const preview = document.createElement('div');
+                preview.className = 'gang-color-preview';
+                if (gang.color2) {
+                    preview.style.background = `linear-gradient(135deg, ${gang.color}, ${gang.color2})`;
+                } else {
+                    preview.style.background = gang.color;
+                }
+
+                btn.innerHTML = `<span>${gang.name}</span>`;
+                btn.appendChild(preview);
+                btn.onclick = () => {
+                    selectedGang = id;
+                    renderGangSelector();
+                };
+
+                container.appendChild(btn);
+            });
+        }
+
+        function renderStats() {
+            const container = document.getElementById('statsContainer');
+            container.innerHTML = '';
+
+            const stats = {};
+            Object.keys(gangs).forEach(gangId => {
+                stats[gangId] = 0;
+            });
+
+            Object.values(territories).forEach(gangId => {
+                if (stats[gangId] !== undefined) {
+                    stats[gangId]++;
+                }
+            });
+
+            const total = TERRITORY_DEFINITIONS.length;
+
+            Object.entries(gangs).forEach(([gangId, gang]) => {
+                const count = stats[gangId] || 0;
+                const percentage = ((count / total) * 100).toFixed(0);
+
+                const statDiv = document.createElement('div');
+                statDiv.className = 'stat-item';
+                statDiv.innerHTML = `
+                    <div class="stat-header">
+                        <span style="color: ${gang.color}; font-weight: bold;">${gang.name}</span>
+                        <span style="color: #aaa;">${count}/${total}</span>
+                    </div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" style="width: ${percentage}%; background: ${gang.color};"></div>
+                    </div>
+                `;
+                container.appendChild(statDiv);
+            });
+        }
+
+        function renderTerritoryList() {
+            const container = document.getElementById('territoryList');
+            container.innerHTML = '';
+
+            TERRITORY_DEFINITIONS.forEach(territory => {
+                const owner = territories[territory.id];
+                const gang = owner ? gangs[owner] : null;
+                const color = gang ? gang.color : '#666';
+
+                const item = document.createElement('div');
+                item.className = 'territory-item';
+                item.style.borderLeftColor = color;
+                item.innerHTML = `
+                    <div class="territory-name">${territory.name}</div>
+                    <div class="territory-owner" style="color: ${color};">
+                        ${gang ? gang.name : 'Unclaimed'}
+                    </div>
+                `;
+                item.onclick = () => {
+                    const polygon = territoryLayers[territory.id];
+                    if (polygon) {
+                        map.fitBounds(polygon.getBounds());
+                        polygon.openPopup();
+                    }
+                };
+                container.appendChild(item);
+            });
+        }
+
+        function updateLastUpdated() {
+            const el = document.getElementById('lastUpdated');
+            el.textContent = `Last Updated: ${new Date().toLocaleString()}`;
+        }
+
+        // ============================================
+        // GANG MANAGEMENT
+        // ============================================
+        window.openAddGangModal = function() {
+            document.getElementById('addGangModal').classList.add('active');
+        };
+
+        window.closeAddGangModal = function() {
+            document.getElementById('addGangModal').classList.remove('active');
+        };
+
+        window.addNewGang = async function() {
+            const name = document.getElementById('newGangName').value.trim();
+            const color = document.getElementById('newGangColor').value;
+            const color2 = document.getElementById('newGangColor2').value;
+
+            if (!name) {
+                alert('Please enter a gang name!');
+                return;
+            }
+
+            const gangId = name.toLowerCase().replace(/\s+/g, '_');
+            const newGang = {
+                name: name,
+                color: color,
+                color2: color !== color2 ? color2 : null
+            };
+
+            await set(ref(database, `gangs/${gangId}`), newGang);
+            closeAddGangModal();
+        };
+
+        window.openManageGangsModal = function() {
+            const modal = document.getElementById('manageGangsModal');
+            const list = document.getElementById('manageGangsList');
+            list.innerHTML = '';
+
+            Object.entries(gangs).forEach(([id, gang]) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding: 15px; background: #0a0a0a; border-radius: 6px; margin-bottom: 10px; border: 2px solid #333;';
+                item.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: ${gang.color};">${gang.name}</strong>
+                            <div style="font-size: 11px; color: #666; margin-top: 3px;">${gang.color}${gang.color2 ? ' → ' + gang.color2 : ''}</div>
+                        </div>
+                        <button onclick="deleteGang('${id}')" 
+                                style="padding: 6px 12px; background: #CC0000; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                            Delete
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+
+            modal.classList.add('active');
+        };
+
+        window.closeManageGangsModal = function() {
+            document.getElementById('manageGangsModal').classList.remove('active');
+        };
+
+        window.deleteGang = async function(gangId) {
+            if (!confirm(`Delete ${gangs[gangId].name}? All their territories will become unclaimed.`)) {
+                return;
+            }
+
+            // Remove gang
+            await remove(ref(database, `gangs/${gangId}`));
+
+            // Unclaim all territories owned by this gang
+            const updates = {};
+            Object.entries(territories).forEach(([territoryId, owner]) => {
+                if (owner === gangId) {
+                    updates[territoryId] = null;
+                }
+            });
+            await update(ref(database, 'territories'), updates);
+
+            closeManageGangsModal();
+        };
+
+        // ============================================
+        // ADMIN CONTROLS
+        // ============================================
+        window.resetAllTerritories = async function() {
+            if (!confirm('⚠️ RESET ALL TERRITORIES? This cannot be undone!')) {
+                return;
+            }
+
+            await remove(ref(database, 'territories'));
+            territories = {};
+        };
+
+        window.exportData = function() {
+            const data = {
+                gangs: gangs,
+                territories: territories,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `turf-map-backup-${Date.now()}.json`;
+            a.click();
+        };
+
+        // Sync color picker with hex input
+        document.addEventListener('DOMContentLoaded', () => {
+            const colorPicker = document.getElementById('newGangColor');
+            const hexInput = document.getElementById('newGangColorHex');
+            const colorPicker2 = document.getElementById('newGangColor2');
+            const hexInput2 = document.getElementById('newGangColor2Hex');
+
+            if (colorPicker && hexInput) {
+                colorPicker.addEventListener('input', () => hexInput.value = colorPicker.value);
+                hexInput.addEventListener('input', () => {
+                    if (/^#[0-9A-F]{6}$/i.test(hexInput.value)) {
+                        colorPicker.value = hexInput.value;
+                    }
+                });
+            }
+
+            if (colorPicker2 && hexInput2) {
+                colorPicker2.addEventListener('input', () => hexInput2.value = colorPicker2.value);
+                hexInput2.addEventListener('input', () => {
+                    if (/^#[0-9A-F]{6}$/i.test(hexInput2.value)) {
+                        colorPicker2.value = hexInput2.value;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
