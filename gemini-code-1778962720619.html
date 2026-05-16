@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Los Santos Gang Turf Map</title>
+  <meta name="description" content="Professional interactive GTA 5 Los Santos gang turf map with Leaflet polygons, Firebase Realtime Database sync, live stats, custom gangs, and mobile-ready controls." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    :root {
+      --font-display: 'Orbitron', 'Arial Black', sans-serif;
+      --font-body: 'Rajdhani', 'Inter', sans-serif;
+      --text-xs: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.25vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.45rem, 1rem + 1.5vw, 2.25rem);
+      --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.4rem);
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --radius-sm: 0.375rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.4rem;
+      --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --bg: #060606;
+      --surface: #111111;
+      --surface-2: #181818;
+      --surface-3: #232323;
+      --border: rgba(255,255,255,0.12);
+      --text: #f6f1df;
+      --muted: #a89f8a;
+      --gold: #d8ab2e;
+      --gold-2: #ffcf57;
+      --danger: #ff5a4d;
+      --neon: #f0442f;
+      --shadow: 0 24px 50px rgba(0,0,0,0.45);
+      --sidebar-w: 360px;
+      --map-h: 100dvh;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); min-height: 100%; }
+    body {
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: 1.45;
+      background:
+        radial-gradient(circle at top, rgba(216,171,46,0.08), transparent 30%),
+        radial-gradient(circle at right, rgba(240,68,47,0.09), transparent 28%),
+        linear-gradient(180deg, #050505 0%, #0a0a0a 100%);
+      overflow: hidden;
+    }
+
+    button, input, select { font: inherit; }
+    button {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      color: var(--text);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: transform var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+      min-height: 44px;
+    }
+    button:hover { transform: translateY(-1px); border-color: rgba(216,171,46,0.65); box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+    button:active { transform: translateY(0); }
+    input {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      padding: 0.85rem 1rem;
+      min-height: 44px;
+      outline: none;
+    }
+    input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(216,171,46,0.14); }
+
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      min-height: 100dvh;
+    }
+
+    .sidebar {
+      position: relative;
+      z-index: 1001;
+      background:
+        linear-gradient(180deg, rgba(20,20,20,0.98), rgba(8,8,8,0.98)),
+        linear-gradient(135deg, rgba(216,171,46,0.08), transparent 50%);
+      border-right: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      max-height: 100dvh;
+    }
+
+    .sidebar-scroll {
+      overflow: auto;
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eyebrow {
+      color: var(--gold-2);
+      font-size: var(--text-xs);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      opacity: 0.95;
+    }
+
+    .title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      line-height: 1.05;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: var(--text-sm);
+      max-width: 34ch;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-4);
+      display: grid;
+      gap: var(--space-3);
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .panel-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: var(--text-sm);
+    }
+
+    .gang-list, .stats-list, .territory-list {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .gang-item, .territory-item, .stat-item {
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.03);
+      border-radius: var(--radius-lg);
+      padding: 0.8rem 0.9rem;
+    }
+
+    .gang-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: var(--space-3);
+      cursor: pointer;
+      transition: transform var(--transition), border-color var(--transition), background var(--transition);
+    }
+
+    .gang-item:hover, .gang-item.active {
+      transform: translateY(-1px);
+      border-color: rgba(216,171,46,0.52);
+      background: rgba(216,171,46,0.08);
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.28);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+    }
+
+    .swatch.dual {
+      background: linear-gradient(135deg, var(--swatch-a) 0 50%, var(--swatch-b) 50% 100%);
+    }
+
+    .gang-name {
+      font-weight: 700;
+      font-size: var(--text-base);
+    }
+
+    .gang-meta, .territory-meta, .stat-meta {
+      font-size: var(--text-xs);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, rgba(216,171,46,0.22), rgba(216,171,46,0.12));
+      border-color: rgba(216,171,46,0.45);
+      color: #fff7d8;
+    }
+
+    .btn-danger {
+      background: linear-gradient(180deg, rgba(255,90,77,0.22), rgba(255,90,77,0.1));
+      border-color: rgba(255,90,77,0.4);
+      color: #ffe1dd;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: var(--space-3);
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: var(--text-sm);
+    }
+
+    .map-shell {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #050505;
+    }
+
+    #map {
+      width: 100%;
+      height: var(--map-h);
+      background: #030303;
+    }
+
+    .map-overlay {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 900;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+
+    .map-banner, .map-status {
+      pointer-events: auto;
+      backdrop-filter: blur(16px);
+      background: rgba(8,8,8,0.72);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .map-banner strong, .map-status strong {
+      font-family: var(--font-display);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: var(--text-sm);
+    }
+
+    .map-status {
+      max-width: 280px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .leaflet-container {
+      font-family: var(--font-body);
+      background: #050505;
+    }
+
+    .leaflet-control-zoom,
+    .leaflet-control-attribution {
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.3) !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a,
+    .leaflet-control-attribution {
+      background: rgba(15,15,15,0.92) !important;
+      color: var(--text) !important;
+      border-color: rgba(255,255,255,0.1) !important;
+    }
+
+    .territory-tooltip {
+      background: rgba(8,8,8,0.92);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      color: var(--text);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+      padding: 0;
+    }
+
+    .territory-tooltip .leaflet-tooltip-content {
+      margin: 0;
+      padding: 0.75rem 0.9rem;
+      min-width: 170px;
+    }
+
+    .tooltip-name {
+      font-size: var(--text-base);
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .tooltip-owner {
+      color: var(--muted);
+      font-size: var(--text-sm);
+    }
+
+    .legend-inline {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .mobile-topbar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1100;
+      padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
+      background: linear-gradient(180deg, rgba(6,6,6,0.98), rgba(6,6,6,0.8));
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .mobile-title {
+      font-family: var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.95rem;
+    }
+
+    .drawer-toggle {
+      min-width: 44px;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.11);
+      padding: 0.45rem 0.7rem;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .territory-item.active {
+      border-color: rgba(216,171,46,0.45);
+      background: rgba(216,171,46,0.08);
+    }
+
+    .territory-row {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-3);
+      align-items: center;
+    }
+
+    .territory-row strong { font-size: var(--text-base); }
+
+    .empty {
+      padding: 1rem;
+      border-radius: var(--radius-lg);
+      color: var(--muted);
+      border: 1px dashed rgba(255,255,255,0.18);
+      text-align: center;
+      background: rgba(255,255,255,0.02);
+    }
+
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .mobile-topbar { display: flex; }
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: fixed;
+        inset: 72px 12px 12px 12px;
+        min-height: auto;
+        max-height: calc(100dvh - 84px);
+        border-radius: 22px;
+        transform: translateX(-108%);
+        transition: transform var(--transition);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .map-shell { padding-top: 68px; }
+      #map { height: calc(100dvh - 68px); }
+      .map-overlay {
+        top: 82px;
+        left: 12px;
+        right: 12px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .map-status { text-align: left; max-width: none; }
+    }
+
+    @media (max-width: 640px) {
+      .controls-grid, .color-row { grid-template-columns: 1fr; }
+      .sidebar-scroll { padding: 1rem; }
+      .title { font-size: 1.55rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button class="drawer-toggle" id="drawerToggle" aria-label="Toggle turf controls">☰</button>
+    <div class="mobile-title">Los Santos Turf</div>
+    <div class="status-pill" id="mobileStatus">Live sync</div>
+  </div>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-scroll">
+        <section class="brand">
+          <div class="eyebrow">San Andreas RP Control Board</div>
+          <div class="title">Los Santos Gang Turf Map</div>
+          <p class="subtitle">Live territory claims, synchronized gang ownership, and neighborhood-level pressure tracking for daily turf wars.</p>
+        </section>
+
+        <section class="panel">
+          <h2>Gang selector</h2>
+          <p class="panel-note">Choose who is currently pushing turf, then tap any neighborhood polygon on the map.</p>
+          <div id="gangList" class="gang-list"></div>
+          <div class="controls-grid">
+            <button class="btn-primary" id="addGangToggle">Add new gang</button>
+            <button id="fitMapBtn">Fit city</button>
+          </div>
+        </section>
+
+        <section class="panel" id="addGangPanel" hidden>
+          <h2>Create gang</h2>
+          <div class="form-grid">
+            <label>
+              <div class="panel-note">Gang name</div>
+              <input id="gangNameInput" type="text" placeholder="Example: East Side Vagos" maxlength="32" />
+            </label>
+            <div class="color-row">
+              <label>
+                <div class="panel-note">Primary color</div>
+                <input id="gangColorPrimary" type="color" value="#2ecc71" />
+              </label>
+              <label>
+                <div class="panel-note">Secondary color</div>
+                <input id="gangColorSecondary" type="color" value="#2ecc71" />
+              </label>
+            </div>
+            <p class="hint">Use the same color twice for a single-color gang, or two different colors for a split color badge.</p>
+            <button class="btn-primary" id="saveGangBtn">Save gang</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Territory control</h2>
+          <p class="panel-note">Click a polygon to claim it instantly. Hover to see who runs that block.</p>
+          <div class="controls-grid">
+            <button class="btn-danger" id="resetMapBtn">Reset map</button>
+            <button id="centerSouthBtn">South LS focus</button>
+          </div>
+          <div class="form-grid">
+            <label>
+              <div class="panel-note">Admin reset key</div>
+              <input id="adminKeyInput" type="password" placeholder="Required for reset" />
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Live statistics</h2>
+          <p class="panel-note">Territory count and city share update in real time for everybody on the same database.</p>
+          <div id="statsList" class="stats-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Neighborhood roster</h2>
+          <p class="panel-note">Fast jump list for all tracked turf zones across Los Santos.</p>
+          <div id="territoryList" class="territory-list"></div>
+        </section>
+      </div>
+    </aside>
+
+    <main class="map-shell">
+      <div class="map-overlay">
+        <div class="map-banner">
+          <strong>Interactive city control</strong>
+          <div class="panel-note">Zoom from city-wide command down to street-level review.</div>
+        </div>
+        <div class="map-status">
+          <strong id="connectionLabel">Connecting…</strong>
+          <div id="lastEventLabel">Waiting for Firebase sync.</div>
+        </div>
+      </div>
+      <div id="map" aria-label="Los Santos gang turf map"></div>
+    </main>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      set,
+      update,
+      get,
+      serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: 'REPLACE_WITH_YOUR_API_KEY',
+      authDomain: 'REPLACE_WITH_YOUR_PROJECT.firebaseapp.com',
+      databaseURL: 'https://REPLACE_WITH_YOUR_PROJECT-default-rtdb.firebaseio.com',
+      projectId: 'REPLACE_WITH_YOUR_PROJECT',
+      storageBucket: 'REPLACE_WITH_YOUR_PROJECT.appspot.com',
+      messagingSenderId: '1234567890',
+      appId: '1:1234567890:web:replace_me'
+    };
+
+    const ADMIN_RESET_KEY = 'CHANGE_THIS_ADMIN_KEY';
+    const MAP_IMAGE_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV-HD-MAP-satellite.jpg';
+    const MAP_WIDTH = 4096;
+    const MAP_HEIGHT = 4096;
+
+    const DEFAULT_GANGS = {
+      grove: { id: 'grove', name: 'Grove Street Families', colors: ['#19c75b', '#19c75b'] },
+      ballas: { id: 'ballas', name: 'Ballas', colors: ['#8d38ff', '#bb8cff'] },
+      diablos: { id: 'diablos', name: 'Diablos', colors: ['#ff642b', '#d12d00'] },
+      grape: { id: 'grape', name: 'Grape Street Crabs', colors: ['#645dff', '#8654ff'] },
+      neutral: { id: 'neutral', name: 'Unclaimed', colors: ['#4e4e4e', '#4e4e4e'] }
+    };
+
+    const TERRITORY_DEFINITIONS = [
+      { id: 'grove-street', name: 'Grove Street', center: [3110, 980], polygon: [[3165,915],[3235,930],[3300,980],[3295,1060],[3210,1105],[3125,1090],[3078,1018],[3100,948]] },
+      { id: 'brockton', name: 'Brockton', center: [3000, 1070], polygon: [[2880,980],[3125,965],[3190,1085],[3115,1215],[2915,1200],[2835,1095]] },
+      { id: 'forum-drive', name: 'Forum Drive', center: [3205, 1190], polygon: [[3070,1095],[3330,1095],[3405,1225],[3305,1365],[3100,1350],[3015,1215]] },
+      { id: 'strawberry', name: 'Strawberry', center: [2640, 1470], polygon: [[2475,1320],[2745,1320],[2815,1490],[2775,1665],[2495,1660],[2425,1495]] },
+      { id: 'davis', name: 'Davis', center: [2960, 1345], polygon: [[2798,1192],[3090,1198],[3198,1328],[3160,1498],[2868,1524],[2760,1384]] },
+      { id: 'chamberlain-hills', name: 'Chamberlain Hills', center: [3265, 1365], polygon: [[3145,1185],[3445,1205],[3530,1365],[3475,1540],[3200,1555],[3108,1395]] },
+      { id: 'rancho', name: 'Rancho', center: [3335, 1670], polygon: [[3175,1535],[3470,1545],[3575,1685],[3485,1845],[3215,1855],[3120,1695]] },
+      { id: 'banning', name: 'Banning', center: [3470, 1970], polygon: [[3305,1845],[3605,1855],[3700,2065],[3370,2145],[3245,1980]] },
+      { id: 'cypress-flats', name: 'Cypress Flats', center: [3695, 1775], polygon: [[3515,1570],[3925,1605],[3995,1815],[3915,1995],[3605,2015],[3480,1810]] },
+      { id: 'murrieta-heights', name: 'Murrieta Heights', center: [3665, 1470], polygon: [[3470,1325],[3895,1360],[3950,1560],[3530,1562]] },
+      { id: 'grape-street', name: 'Grape Street', center: [3470, 1100], polygon: [[3345,965],[3575,975],[3655,1108],[3605,1245],[3395,1248],[3298,1125]] },
+      { id: 'jamestown', name: 'Jamestown Street', center: [3565, 980], polygon: [[3455,875],[3658,882],[3732,1002],[3668,1125],[3498,1118],[3408,985]] },
+      { id: 'el-burro-heights', name: 'El Burro Heights', center: [3815, 1170], polygon: [[3645,995],[3978,1025],[4035,1235],[3695,1285],[3602,1128]] },
+      { id: 'la-mesa', name: 'La Mesa', center: [3260, 1000], polygon: [[3115,845],[3388,860],[3470,980],[3405,1135],[3170,1120],[3060,975]] },
+      { id: 'mirror-park', name: 'Mirror Park', center: [2860, 620], polygon: [[2625,450],[3020,435],[3155,610],[3070,820],[2690,828],[2535,640]] },
+      { id: 'downtown', name: 'Downtown LS', center: [2380, 1095], polygon: [[2205,895],[2515,900],[2598,1090],[2558,1295],[2250,1285],[2145,1105]] },
+      { id: 'pillbox-hill', name: 'Pillbox Hill', center: [2175, 1225], polygon: [[1995,1105],[2280,1100],[2368,1272],[2285,1430],[2015,1420],[1930,1265]] },
+      { id: 'mission-row', name: 'Mission Row', center: [2625, 1060], polygon: [[2510,915],[2785,925],[2858,1070],[2795,1210],[2542,1215],[2470,1080]] },
+      { id: 'textile-city', name: 'Textile City', center: [2790, 920], polygon: [[2650,820],[2920,825],[2992,965],[2880,1090],[2675,1075],[2590,950]] },
+      { id: 'legion-square', name: 'Legion Square', center: [2420, 990], polygon: [[2305,900],[2528,900],[2585,1015],[2518,1115],[2340,1110],[2265,1008]] },
+      { id: 'alta', name: 'Alta', center: [2465, 830], polygon: [[2300,650],[2580,660],[2670,845],[2578,985],[2330,960],[2230,795]] },
+      { id: 'vinewood', name: 'Vinewood', center: [1995, 520], polygon: [[1650,340],[2140,288],[2385,455],[2320,700],[1835,785],[1580,612]] },
+      { id: 'downtown-vinewood', name: 'Downtown Vinewood', center: [2140, 640], polygon: [[1915,530],[2302,525],[2425,672],[2350,845],[1990,840],[1840,675]] },
+      { id: 'west-vinewood', name: 'West Vinewood', center: [1540, 700], polygon: [[1225,480],[1635,510],[1775,690],[1710,915],[1320,935],[1165,730]] },
+      { id: 'hawick', name: 'Hawick', center: [2145, 760], polygon: [[1910,650],[2325,645],[2440,810],[2360,958],[1980,950],[1865,815]] },
+      { id: 'rockford-hills', name: 'Rockford Hills', center: [1380, 630], polygon: [[1015,420],[1515,398],[1665,615],[1545,920],[1100,895],[955,665]] },
+      { id: 'burton', name: 'Burton', center: [1665, 940], polygon: [[1450,810],[1865,820],[1950,1010],[1818,1170],[1510,1160],[1398,980]] },
+      { id: 'little-seoul', name: 'Little Seoul', center: [1470, 1300], polygon: [[1240,1170],[1638,1150],[1705,1350],[1620,1515],[1280,1495],[1185,1310]] },
+      { id: 'del-perro', name: 'Del Perro', center: [1015, 1160], polygon: [[760,960],[1225,965],[1305,1198],[1165,1350],[835,1325],[690,1120]] },
+      { id: 'vespucci-canals', name: 'Vespucci Canals', center: [900, 1505], polygon: [[650,1360],[1110,1335],[1185,1540],[1010,1700],[705,1660],[590,1490]] },
+      { id: 'vespucci-beach', name: 'Vespucci Beach', center: [560, 1825], polygon: [[310,1660],[835,1685],[905,1935],[405,2060],[225,1860]] },
+      { id: 'la-puerta', name: 'La Puerta', center: [1150, 1750], polygon: [[860,1535],[1335,1555],[1470,1825],[1180,2035],[865,1935],[760,1728]] },
+      { id: 'puerto-del-sol', name: 'Puerto Del Sol', center: [760, 2120], polygon: [[520,1960],[1010,1995],[1108,2265],[705,2405],[445,2235]] },
+      { id: 'south-los-santos', name: 'South Los Santos', center: [2860, 1755], polygon: [[2455,1655],[3170,1655],[3280,1935],[2615,2020],[2360,1830]] }
+    ];
+
+    const dom = {
+      gangList: document.getElementById('gangList'),
+      statsList: document.getElementById('statsList'),
+      territoryList: document.getElementById('territoryList'),
+      addGangToggle: document.getElementById('addGangToggle'),
+      addGangPanel: document.getElementById('addGangPanel'),
+      gangNameInput: document.getElementById('gangNameInput'),
+      gangColorPrimary: document.getElementById('gangColorPrimary'),
+      gangColorSecondary: document.getElementById('gangColorSecondary'),
+      saveGangBtn: document.getElementById('saveGangBtn'),
+      resetMapBtn: document.getElementById('resetMapBtn'),
+      adminKeyInput: document.getElementById('adminKeyInput'),
+      fitMapBtn: document.getElementById('fitMapBtn'),
+      centerSouthBtn: document.getElementById('centerSouthBtn'),
+      connectionLabel: document.getElementById('connectionLabel'),
+      lastEventLabel: document.getElementById('lastEventLabel'),
+      drawerToggle: document.getElementById('drawerToggle'),
+      sidebar: document.getElementById('sidebar'),
+      mobileStatus: document.getElementById('mobileStatus')
+    };
+
+    let selectedGangId = 'neutral';
+    let liveGangs = { ...DEFAULT_GANGS };
+    let liveTerritories = Object.fromEntries(TERRITORY_DEFINITIONS.map(t => [t.id, 'neutral']));
+    let selectedTerritoryId = null;
+    const polygonLayers = new Map();
+    const tooltipLayers = new Map();
+    let db = null;
+    let app = null;
+
+    function firebaseConfigured() {
+      return !Object.values(FIREBASE_CONFIG).some(value => String(value).includes('REPLACE_WITH_YOUR_PROJECT') || String(value).includes('REPLACE_WITH_YOUR_API_KEY') || String(value).includes('replace_me'));
+    }
+
+    function slugify(name) {
+      return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '').slice(0, 24);
+    }
+
+    function ensureGangColors(gang) {
+      const colors = Array.isArray(gang.colors) && gang.colors.length ? gang.colors : ['#4e4e4e', '#4e4e4e'];
+      return [colors[0] || '#4e4e4e', colors[1] || colors[0] || '#4e4e4e'];
+    }
+
+    function gangColor(gangId) {
+      const gang = liveGangs[gangId] || liveGangs.neutral;
+      return ensureGangColors(gang)[0];
+    }
+
+    function makeTooltipHtml(territory) {
+      const owner = liveGangs[liveTerritories[territory.id]] || liveGangs.neutral;
+      return `
+        <div class="tooltip-name">${territory.name}</div>
+        <div class="tooltip-owner">Controlled by ${owner.name}</div>
+      `;
+    }
+
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -1,
+      maxZoom: 2,
+      zoomSnap: 0.1,
+      zoomDelta: 0.25,
+      wheelPxPerZoomLevel: 130,
+      attributionControl: true,
+      maxBoundsViscosity: 0.9
+    });
+
+    const bounds = [[0, 0], [MAP_HEIGHT, MAP_WIDTH]];
+    L.imageOverlay(MAP_IMAGE_URL, bounds).addTo(map);
+    map.setMaxBounds([[-200, -200], [MAP_HEIGHT + 200, MAP_WIDTH + 200]]);
+    map.fitBounds(bounds);
+
+    function styleForGang(gangId, active = false) {
+      const primary = gangColor(gangId);
+      const isNeutral = gangId === 'neutral';
+      return {
+        color: active ? '#fff5d2' : (isNeutral ? 'rgba(255,255,255,0.25)' : primary),
+        weight: active ? 3.8 : 1.8,
+        fillColor: primary,
+        fillOpacity: isNeutral ? 0.08 : (active ? 0.45 : 0.28),
+        opacity: 0.85,
+        dashArray: isNeutral ? '4, 4' : null
+      };
+    }
+
+    function renderGangList() {
+      const gangs = Object.values(liveGangs);
+      dom.gangList.innerHTML = gangs.map(gang => {
+        const [a, b] = ensureGangColors(gang);
+        const dual = a.toLowerCase() !== b.toLowerCase();
+        const isSelected = selectedGangId === gang.id;
+        return `
+          <button class="gang-item ${isSelected ? 'active' : ''}" data-gang-id="${gang.id}">
+            <span class="swatch ${dual ? 'dual' : ''}" style="${dual ? `--swatch-a:${a};--swatch-b:${b};` : `background:${a};`}"></span>
+            <span>
+              <div class="gang-name">${gang.name}</div>
+              <div class="gang-meta">${gang.id === 'neutral' ? 'Clear active claims' : 'Tap to arm claims'}</div>
+            </span>
+            <span class="gang-meta">${Object.values(liveTerritories).filter(id => id === gang.id).length}</span>
+          </button>
+        `;
+      }).join('');
+
+      [...dom.gangList.querySelectorAll('[data-gang-id]')].forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedGangId = btn.dataset.gangId;
+          renderGangList();
+          refreshPolygons();
+        });
+      });
+    }
+
+    function renderStats() {
+      const total = TERRITORY_DEFINITIONS.length;
+      const rows = Object.values(liveGangs)
+        .map(gang => {
+          const count = Object.values(liveTerritories).filter(id => id === gang.id).length;
+          const pct = ((count / total) * 100).toFixed(1);
+          const [a, b] = ensureGangColors(gang);
+          const dual = a.toLowerCase() !== b.toLowerCase();
+          return `
+            <div class="stat-item">
+              <div class="legend-inline">
+                <span class="swatch ${dual ? 'dual' : ''}" style="${dual ? `--swatch-a:${a};--swatch-b:${b};` : `background:${a};`}"></span>
+                <strong>${gang.name}</strong>
+              </div>
+              <div class="territory-row" style="margin-top:.55rem;">
+                <span class="stat-meta">Territories</span>
+                <strong>${count}</strong>
+              </div>
+              <div class="territory-row">
+                <span class="stat-meta">City share</span>
+                <strong>${pct}%</strong>
+              </div>
+            </div>
+          `;
+        });
+      dom.statsList.innerHTML = rows.join('');
+    }
+
+    function renderTerritoryList() {
+      dom.territoryList.innerHTML = TERRITORY_DEFINITIONS.map(territory => {
+        const owner = liveGangs[liveTerritories[territory.id]] || liveGangs.neutral;
+        const [a, b] = ensureGangColors(owner);
+        const dual = a.toLowerCase() !== b.toLowerCase();
+        return `
+          <button class="territory-item ${selectedTerritoryId === territory.id ? 'active' : ''}" data-territory-id="${territory.id}">
+            <div class="territory-row">
+              <strong>${territory.name}</strong>
+              <span class="swatch ${dual ? 'dual' : ''}" style="${dual ? `--swatch-a:${a};--swatch-b:${b};` : `background:${a};`}"></span>
+            </div>
+            <div class="territory-meta">${owner.name}</div>
+          </button>
+        `;
+      }).join('');
+
+      [...dom.territoryList.querySelectorAll('[data-territory-id]')].forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.territoryId;
+          selectedTerritoryId = id;
+          const territory = TERRITORY_DEFINITIONS.find(t => t.id === id);
+          if (territory) {
+            map.flyTo(territory.center, Math.max(map.getZoom(), 0.6), { duration: 0.55 });
+            polygonLayers.get(id)?.openTooltip();
+          }
+          renderTerritoryList();
+          refreshPolygons();
+          if (window.innerWidth <= 980) dom.sidebar.classList.remove('open');
+        });
+      });
+    }
+
+    function refreshPolygons() {
+      TERRITORY_DEFINITIONS.forEach(territory => {
+        const ownerId = liveTerritories[territory.id] || 'neutral';
+        const layer = polygonLayers.get(territory.id);
+        if (!layer) return;
+        layer.setStyle(styleForGang(ownerId, selectedTerritoryId === territory.id));
+        layer.setTooltipContent(makeTooltipHtml(territory));
+      });
+      renderGangList();
+      renderStats();
+      renderTerritoryList();
+    }
+
+    async function claimTerritory(territoryId) {
+      selectedTerritoryId = territoryId;
+      refreshPolygons();
+      const territory = TERRITORY_DEFINITIONS.find(t => t.id === territoryId);
+      if (!territory) return;
+
+      if (!firebaseConfigured() || !db) {
+        liveTerritories[territoryId] = selectedGangId;
+        dom.lastEventLabel.textContent = `${territory.name} modified locally to: ${liveGangs[selectedGangId]?.name || selectedGangId}.`;
+        refreshPolygons();
+        return;
+      }
+
+      await update(ref(db), {
+        [`territories/${territoryId}`]: selectedGangId,
+        'meta/lastAction': {
+          territoryId,
+          territoryName: territory.name,
+          gangId: selectedGangId,
+          gangName: liveGangs[selectedGangId]?.name || selectedGangId,
+          updatedAt: Date.now(),
+          updatedAtServer: serverTimestamp()
+        }
+      });
+    }
+
+    function createPolygons() {
+      TERRITORY_DEFINITIONS.forEach(territory => {
+        const latLngs = territory.polygon.map(([x, y]) => [y, x]);
+        const layer = L.polygon(latLngs, styleForGang(liveTerritories[territory.id] || 'neutral'))
+          .addTo(map)
+          .bindTooltip(makeTooltipHtml(territory), { className: 'territory-tooltip', sticky: true, direction: 'top' });
+
+        layer.on('mouseover', () => layer.setStyle(styleForGang(liveTerritories[territory.id] || 'neutral', true)));
+        layer.on('mouseout', () => layer.setStyle(styleForGang(liveTerritories[territory.id] || 'neutral', selectedTerritoryId === territory.id)));
+        layer.on('click', async () => {
+          await claimTerritory(territory.id);
+        });
+        polygonLayers.set(territory.id, layer);
+        tooltipLayers.set(territory.id, layer.getTooltip());
+      });
+    }
+
+    async function addGang() {
+      const name = dom.gangNameInput.value.trim();
+      const primary = dom.gangColorPrimary.value;
+      const secondary = dom.gangColorSecondary.value;
+      if (!name) {
+        alert('Enter a gang name first.');
+        return;
+      }
+      const id = slugify(name);
+      const payload = { id, name, colors: [primary, secondary] };
+
+      if (!firebaseConfigured() || !db) {
+        liveGangs[id] = payload;
+        selectedGangId = id;
+        refreshPolygons();
+      } else {
+        await set(ref(db, `gangs/${id}`), payload);
+        selectedGangId = id;
+      }
+
+      dom.gangNameInput.value = '';
+      dom.addGangPanel.hidden = true;
+    }
+
+    async function resetMap() {
+      if (dom.adminKeyInput.value !== ADMIN_RESET_KEY) {
+        alert('Wrong admin reset key.');
+        return;
+      }
+      if (!confirm('Reset all territories to unclaimed?')) return;
+
+      const neutralMap = Object.fromEntries(TERRITORY_DEFINITIONS.map(t => [t.id, 'neutral']));
+
+      if (!firebaseConfigured() || !db) {
+        liveTerritories = neutralMap;
+        dom.lastEventLabel.textContent = 'Map reset locally.';
+        refreshPolygons();
+        return;
+      }
+
+      await set(ref(db, 'territories'), neutralMap);
+      await update(ref(db), {
+        'meta/lastAction': {
+          territoryId: 'all',
+          territoryName: 'All Territories',
+          gangId: 'neutral',
+          gangName: 'Unclaimed',
+          updatedAt: Date.now(),
+          updatedAtServer: serverTimestamp(),
+          reset: true
+        }
+      });
+    }
+
+    async function bootstrapFirebase() {
+      if (!firebaseConfigured()) {
+        dom.connectionLabel.textContent = 'Unclaimed Setup Mode';
+        dom.lastEventLabel.textContent = 'Click zones to test distribution. Link Firebase config when ready.';
+        dom.mobileStatus.textContent = 'Demo Panel';
+        refreshPolygons();
+        return;
+      }
+
+      try {
+        app = initializeApp(FIREBASE_CONFIG);
+        db = getDatabase(app);
+
+        const gangsRef = ref(db, 'gangs');
+        const territoriesRef = ref(db, 'territories');
+        const metaRef = ref(db, 'meta/lastAction');
+
+        const gangsSnap = await get(gangsRef);
+        if (!gangsSnap.exists()) await set(gangsRef, DEFAULT_GANGS);
+
+        const territoriesSnap = await get(territoriesRef);
+        if (!territoriesSnap.exists()) {
+          await set(territoriesRef, Object.fromEntries(TERRITORY_DEFINITIONS.map(t => [t.id, 'neutral'])));
+        }
+
+        onValue(gangsRef, snap => {
+          const value = snap.val() || DEFAULT_GANGS;
+          liveGangs = { ...DEFAULT_GANGS, ...value };
+          refreshPolygons();
+        });
+
+        onValue(territoriesRef, snap => {
+          const raw = snap.val() || {};
+          liveTerritories = Object.fromEntries(TERRITORY_DEFINITIONS.map(t => [t.id, raw[t.id] || 'neutral']));
+          refreshPolygons();
+        });
+
+        onValue(metaRef, snap => {
+          const meta = snap.val();
+          if (!meta) return;
+          const stamp = meta.updatedAt ? new Date(meta.updatedAt).toLocaleString() : 'just now';
+          dom.connectionLabel.textContent = meta.reset ? 'Map reset live' : 'Live sync active';
+          dom.mobileStatus.textContent = 'Live sync';
+          dom.lastEventLabel.textContent = meta.reset
+            ? `All territories reset at ${stamp}.`
+            : `${meta.territoryName} updated by ${meta.gangName} · ${stamp}`;
+        });
+      } catch (error) {
+        console.error(error);
+        dom.connectionLabel.textContent = 'Firebase error';
+        dom.lastEventLabel.textContent = 'Check your config and database rules.';
+        dom.mobileStatus.textContent = 'Sync error';
+      }
+    }
+
+    dom.addGangToggle.addEventListener('click', () => {
+      dom.addGangPanel.hidden = !dom.addGangPanel.hidden;
+    });
+    dom.saveGangBtn.addEventListener('click', addGang);
+    dom.resetMapBtn.addEventListener('click', resetMap);
+    dom.fitMapBtn.addEventListener('click', () => map.fitBounds(bounds, { padding: [40, 40] }));
+    dom.centerSouthBtn.addEventListener('click', () => map.flyTo([1500, 3100], 0.35, { duration: 0.65 }));
+    dom.drawerToggle.addEventListener('click', () => dom.sidebar.classList.toggle('open'));
+
+    map.on('zoomend moveend', () => {
+      const zoomPct = Math.round((((map.getZoom() + 1) / 3) * 350) + 50);
+      dom.mobileStatus.textContent = `Zoom ${Math.max(50, Math.min(400, zoomPct))}%`;
+    });
+
+    createPolygons();
+    refreshPolygons();
+    bootstrapFirebase();
+  </script>
+</body>
+</html>
